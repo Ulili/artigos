@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Upload direto para Azure Storage</title>
+</head>
+<body>
+    <div>
+        <p>Enviar Imagem</p>
+        <p>
+            <input id="upFile" type="file" accept="image/*" />
+            <br />
+            <progress id="progress" min="0" max="100" value="0">0% complete</progress>
+        </p>
+        <p>
+            <button id="btnEnviar">Enviar</button>
+        </p>
+    </div>
+    <div>
+        <p>Resultado</p>
+        <img id="imgOri" />
+        <img id="imgMd" />
+        <img id="imgSm" />
+        <img id="imgThumbnail" />
+    </div>
+</body>
+</html>

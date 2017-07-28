@@ -1,0 +1,129 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Upload direto para Azure Storage</title>
+</head>
+
+<body>
+    <div>
+        <p>Enviar Imagem</p>
+        <p>
+            <input id="upFile" type="file" accept="image/*" />
+            <br />
+            <progress id="progress" min="0" max="100" value="0">0% complete</progress>
+        </p>
+        <p>
+            <button id="btnEnviar">Enviar</button>
+        </p>
+    </div>
+    <div>
+        <p>Resultado</p>
+        <img id="imgOri" />
+        <img id="imgMd" />
+        <img id="imgSm" />
+        <img id="imgThumbnail" />
+    </div>
+    <script>
+        var btn = document.getElementById("btnEnviar");
+        var progressBar = document.getElementById("progress");
+        var uploadFile = document.getElementById("upFile");
+
+        btn.addEventListener("click", function () {
+            var util = new Util();
+            util.upload();
+        });
+
+        function Util() {
+            const AZURE_FUNCTION_URL = "https://[Nome da Sua Aplicacao].azurewebsites.net";
+            const AZURE_FUNCTION_KEY = "JU%2FsLOJNqQVz%2FAQ6nJlg8bb2xgjgkUPVaBSWH0V7D17C7SIkhiza2Q%3D%3D";
+            const AZURE_STORAGE_URL = "https://[Nome da Sua Aplicacao].blob.core.windows.net";
+            const AZURE_STORAGE_PATH = "/app/upload/artigos";
+
+            _sendBlob = function (uri, file, fileBlob, sasToken) {
+                var xhr = new XMLHttpRequest();
+                //xhr.withCredentials = true;
+                xhr.addEventListener("progress", _uploadProgress);
+                xhr.addEventListener("readystatechange", function () {
+                    if (this.readyState === 4) {
+                        var url = uri.split("?")[0];
+                        var transformedImg = {
+                            "Upload": url,
+                            "ImagensMd": url.replace("upload", "imagens-md"),
+                            "ImagensSm": url.replace("upload", "imagens-sm"),
+                            "ImagensThumbnail": url.replace("upload", "imagens-thumbnail")
+                        };
+                        console.log(transformedImg);
+                        //Exibindo as Imagens Otimizadas
+                        imgOri.src = transformedImg.Upload;
+                        imgMd.src = transformedImg.ImagensMd;
+                        imgSm.src = transformedImg.ImagensSm;
+                        imgThumbnail.src = transformedImg.ImagensThumbnail;
+                    }
+                });
+                xhr.addEventListener("error", function (err) {
+                    console.log(err);
+                });
+
+                xhr.open("PUT", uri);
+                xhr.setRequestHeader("x-ms-version", "2015-02-21");
+                xhr.setRequestHeader("content-type", file.type);
+                xhr.setRequestHeader("x-ms-blob-type", "BlockBlob");
+                xhr.setRequestHeader("x-ms-meta-m1", "v1");
+                xhr.setRequestHeader("x-ms-meta-m2", "v2");
+                xhr.setRequestHeader("cache-control", "no-cache");
+                xhr.setRequestHeader("content-length", file.size);
+                xhr.send(fileBlob);
+            }
+
+            _uploadProgress = function (oEvent) {
+                if (oEvent.lengthComputable) {
+                    progressBar.value = ((oEvent.loaded / oEvent.total) * 100);
+
+                } else {
+                    // Unable to compute progress information since the total size is unknown
+                }
+            }
+
+            _processImagem = function (sasToken) {
+                var uri = encodeURI(AZURE_STORAGE_URL + AZURE_STORAGE_PATH + "/" + uploadFile.files[0].name) + sasToken;
+                var file = {
+                    type: uploadFile.files[0].type,
+                    size: uploadFile.files[0].size
+                };
+
+                var reader = new FileReader();
+                reader.onloadend = function () {
+                    var blob = new Blob([new Uint8Array(this.result)], { type: file.type });
+                    _sendBlob(uri, file, blob);
+                };
+
+                reader.readAsArrayBuffer(uploadFile.files[0]);
+            }
+
+            this.upload = function (opcao) {
+
+                var data = JSON.stringify({
+                    "ContainerName": "app", //Nomde do container do Azure Storage onde o arquivo será armazenado
+                    "Permission": "Read,Write,Create" //Nivel de acesso desejado
+                });
+
+                var xhr = new XMLHttpRequest();
+                xhr.addEventListener("readystatechange", function () {
+                    if (this.readyState === 4) {
+                        _processImagem(this.responseText); //SAS Token gerado para processar o Upload de imagem
+                    }
+                });
+
+                xhr.open("POST", AZURE_FUNCTION_URL + "/api/SasTokenUpload?code=" + AZURE_FUNCTION_KEY); //URL do Azure Function que gera o token
+                xhr.setRequestHeader("content-type", "application/json");
+                xhr.setRequestHeader("cache-control", "no-cache");
+
+                xhr.send(data);
+            }
+        }
+    </script>
+</body>
+
+</html>
